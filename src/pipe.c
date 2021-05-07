@@ -131,7 +131,7 @@ void pipe_stage_decode() {
   Reg_DEtoEX.ins = instruction; // transfer the instruction
   Reg_DEtoEX.rs_value = CURRENT_STATE.REGS[addr_rs];
   Reg_DEtoEX.rt_value = CURRENT_STATE.REGS[addr_rt];
-  printf("DECODE -- RT = %x", Reg_DEtoEX.rt_value);
+  printf("DECODE -- RT from %d = %x", addr_rt, Reg_DEtoEX.rt_value);
   // register number
   Reg_DEtoEX.addr_rt = addr_rt;
   Reg_DEtoEX.addr_rd = addr_rd;
