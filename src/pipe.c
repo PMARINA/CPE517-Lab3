@@ -371,6 +371,7 @@ void pipe_stage_mem() {
  */
 void pipe_stage_wb() { /*Implement your code here*/
   uint32_t val_to_write = 0;
+  printf("WB -- wb = %x", Reg_MEMtoWB.wb);
   if (memtoReg(Reg_MEMtoWB.wb)) {
     // need to write from mem to reg
     val_to_write = Reg_MEMtoWB.rt_value;
@@ -378,9 +379,9 @@ void pipe_stage_wb() { /*Implement your code here*/
     // need to write from ALU to reg
     val_to_write = Reg_MEMtoWB.AluResult;
   }
-  printf("WB -- val-to-write = %x", val_to_write);
   if (regWrite(Reg_MEMtoWB.wb) != 0) {
     // need to write register (not a jump/branch/store instruction)
     CURRENT_STATE.REGS[Reg_MEMtoWB.addr_rd] = val_to_write;
+    printf("WB -- stored %x in %n", val_to_write, Reg_MEMtoWB.addr_rd);
   }
 }
