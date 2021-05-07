@@ -330,6 +330,12 @@ void pipe_stage_execute() {
   printf("\n\nADDR = %d, answer = %x\n", Reg_EXtoMEM.addr_rd,
          Reg_EXtoMEM.AluResult);
   if (forwardB == 1) {
+    // This is an edge case problem with I-type instructions
+    // where the value of rt is not used until MEM.
+    // Only happens with SW.
+
+    // LW doesn't have this problem because both operands
+    // are used in EX and don't just pass through
     Reg_EXtoMEM.rt_value = Reg_MEMtoWB.AluResultCopy;
     printf("HAD TO COPYYYY");
   }
