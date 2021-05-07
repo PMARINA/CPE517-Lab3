@@ -382,6 +382,6 @@ void pipe_stage_wb() { /*Implement your code here*/
   if (regWrite(Reg_MEMtoWB.wb) != 0) {
     // need to write register (not a jump/branch/store instruction)
     CURRENT_STATE.REGS[Reg_MEMtoWB.addr_rd] = val_to_write;
-    printf("WB -- stored %x in %n", val_to_write, Reg_MEMtoWB.addr_rd);
+    printf("WB -- stored %x in %d", val_to_write, Reg_MEMtoWB.addr_rd);
   }
 }
