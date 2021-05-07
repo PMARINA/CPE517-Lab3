@@ -327,6 +327,12 @@ void pipe_stage_execute() {
   Reg_EXtoMEM.zero = !Reg_EXtoMEM.AluResult; // set zero flag
   if (op == 5 || op == 7)                    // for bne or bgtz
     Reg_EXtoMEM.zero = !Reg_EXtoMEM.zero;
+  printf("\n\nADDR = %d, answer = %x\n", Reg_EXtoMEM.addr_rd,
+         Reg_EXtoMEM.AluResult);
+  if (forwardB == 1) {
+    Reg_EXtoMEM.rt_value = Reg_MEMtoWB.AluResultCopy;
+    printf("HAD TO COPYYYY");
+  }
 }
 void fflush_instruction() {
   Reg_EXtoMEM.wb_mem = 0;
@@ -346,14 +352,15 @@ void pipe_stage_mem() {
   Reg_MEMtoWB.rt_value = Reg_EXtoMEM.rt_value;
   /*Implement your code here*/
   // forward result from writeback if it needs to be done.
-  if(Reg_MEMtoWB.addr_rd == Reg_EXtoMEM.addr_rd){
-    Reg_MEMtoWB.rt_value = getInput1();
-    // Reg_MEMtoWB.rt_value = Reg_MEMtoWB.rt_value;
-  }
+  // if(Reg_MEMtoWB.addr_rd == Reg_EXtoMEM.addr_rd){
+  //   Reg_MEMtoWB.rt_value = Reg_EXtoMEM.rt_value;
+  //   // Reg_MEMtoWB.rt_value = Reg_MEMtoWB.rt_value;
+  // }
   if (memWrite(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to write
     mem_write_32(Reg_MEMtoWB.AluResult, Reg_MEMtoWB.rt_value);
-    printf("\nSTORING VALUE %x INTO %x", Reg_MEMtoWB.rt_value, Reg_MEMtoWB.AluResult);
+    printf("\nSTORING VALUE %x INTO %x", Reg_MEMtoWB.rt_value,
+           Reg_MEMtoWB.AluResult);
   }
   if (memRead(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to read
