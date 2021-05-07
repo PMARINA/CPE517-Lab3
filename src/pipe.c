@@ -347,6 +347,7 @@ void pipe_stage_mem() {
   if (memWrite(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to write
     mem_write_32(Reg_MEMtoWB.AluResult, Reg_MEMtoWB.rt_value);
+    printf("\nSTORING VALUE %x INTO %x", Reg_MEMtoWB.rt_value, Reg_MEMtoWB.AluResult);
   }
   if (memRead(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to read
