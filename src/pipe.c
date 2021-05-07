@@ -105,7 +105,7 @@ int check_stall(uint32_t rs, uint32_t rt) {
   return 0;
 }
 void pipe_stage_decode() {
-  printf("\nthis is decode!!!");
+  // printf("\nthis is decode!!!");
   uint32_t instruction = Reg_IFtoDE.ins1;
 
   if (instruction == 0) {
@@ -131,6 +131,7 @@ void pipe_stage_decode() {
   Reg_DEtoEX.ins = instruction; // transfer the instruction
   Reg_DEtoEX.rs_value = CURRENT_STATE.REGS[addr_rs];
   Reg_DEtoEX.rt_value = CURRENT_STATE.REGS[addr_rt];
+  printf("DECODE -- RT = %x", Reg_DEtoEX.rt_value);
   // register number
   Reg_DEtoEX.addr_rt = addr_rt;
   Reg_DEtoEX.addr_rd = addr_rd;
@@ -334,7 +335,7 @@ void fflush_instruction() {
   Reg_IFtoDE.ins1 = 0;
 }
 void pipe_stage_mem() {
-  printf("\nthis is mem!!!\n");
+  // printf("\nthis is mem!!!\n");
   Reg_MEMtoWB.wbCopy = Reg_MEMtoWB.wb;
   Reg_MEMtoWB.wb = Reg_EXtoMEM.wb_mem >> 4;
   Reg_MEMtoWB.addr_rd = Reg_EXtoMEM.addr_rd;
