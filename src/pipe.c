@@ -347,7 +347,8 @@ void pipe_stage_mem() {
   /*Implement your code here*/
   // forward result from writeback if it needs to be done.
   if(Reg_MEMtoWB.addr_rd == Reg_EXtoMEM.addr_rd){
-    Reg_MEMtoWB.rt_value = Reg_MEMtoWB.rt_value;
+    Reg_MEMtoWB.rt_value = getInput1();
+    // Reg_MEMtoWB.rt_value = Reg_MEMtoWB.rt_value;
   }
   if (memWrite(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to write
