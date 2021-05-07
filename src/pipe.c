@@ -33,7 +33,7 @@ void pipe_cycle() {
 
 /*
  * every instruction is 5 stages.
- * wait times is 5, and the last instrction's execution is over.
+ * wait times is 5, and the last instruction's execution is over.
  */
 void pipe_stage_fetch() {
   if (stall > 0) // if stall, not need to load instruction
@@ -42,19 +42,20 @@ void pipe_stage_fetch() {
     return;
   }
   uint32_t instruction = mem_read_32(CURRENT_STATE.PC);
-  static int times = 0; // staic variable  initial only once
+  static int times = 0; // static variable - initialize once
   if (instruction == 0) {
     times++;
     if (times == 5)
       RUN_BIT = 0;
-  }
+  } else
+    times = 0;
   CURRENT_STATE.PC = CURRENT_STATE.PC + 4; // set PC
   Reg_IFtoDE.ins1 = instruction;
   Reg_IFtoDE.PC = CURRENT_STATE.PC;
 }
 
 /*
- * return a signed int saved as a unsigned numebr
+ * return a signed int saved as a unsigned number
  */
 uint32_t signExtend16to32(uint32_t val16) {
   if (val16 & 0x8000)
@@ -121,7 +122,7 @@ void pipe_stage_decode() {
   stall += check_stall(addr_rs, addr_rt);
 
   if (stall) {
-    printf("enconter lw and need a stall\n");
+    printf("encounter lw and need a stall\n");
     Reg_DEtoEX.ex = 0; // clear control line
     Reg_DEtoEX.wb_mem = 0;
     return;
@@ -166,7 +167,7 @@ void pipe_stage_decode() {
   detect_hazard();
 }
 
-uint8_t ALU_control(uint32_t instruction) { // caculate the ALU control input
+uint8_t ALU_control(uint32_t instruction) { // calculate the ALU control input
 
   uint32_t op = getOp(instruction);
   uint32_t funct = getFunct(instruction);
@@ -182,49 +183,42 @@ uint8_t ALU_control(uint32_t instruction) { // caculate the ALU control input
     case 0x23: // subu
       control = SUB;
       break;
-      /*Implment other cases here*/
+      /*Implement other cases here*/
     case 0x2a: // slt
+      control = LESS;
+      break;
     case 0x2b: // sltu
       control = LESSU;
       break;
     default:
+      printf("ALU Control - Unknown func received: %x", funct);
       break;
     }
   } else {
     switch (op) {
     case 0x23: // lw
     case 0x2b: // sw
+    case 0xf:  // lui
+    case 0x8:  // addi
+    case 0x9:  // addiu
       control = ADD;
       break;
     case 0x4: // beq
-      control = SUB;
-      break;
     case 0x5: // bne
       control = SUB;
       break;
-      /*Implment other cases here*/
     case 0x7: // bgtz
-      control = LESS;
-      break;
-    case 0x2: // j
-      control = NOP;
-      break;
     case 0xa: // slti
       control = LESS;
-      break;
-    case 0xf: // lui
-      control = ADD;
       break;
     case 0xd: // ori
       control = OR;
       break;
-    case 0x8: // addi
-      control = ADD;
-      break;
-    case 0x9: // addiu
-      control = ADD;
+    case 0x2: // j
+      control = NOP;
       break;
     default:
+      printf("ALU Control - Unknown op received: %x", op);
       break;
     }
   }
@@ -344,16 +338,46 @@ void pipe_stage_mem() {
   Reg_MEMtoWB.wbCopy = Reg_MEMtoWB.wb;
   Reg_MEMtoWB.wb = Reg_EXtoMEM.wb_mem >> 4;
   Reg_MEMtoWB.addr_rd = Reg_EXtoMEM.addr_rd;
-  Reg_MEMtoWB.AluResultCopy =
-      Reg_MEMtoWB.AluResult; // make a copy for forwarding
+  // make a copy for forwarding
+  Reg_MEMtoWB.AluResultCopy = Reg_MEMtoWB.AluResult;
   Reg_MEMtoWB.AluResult = Reg_EXtoMEM.AluResult;
-  Reg_MEMtoWB.rt_value =
-      Reg_EXtoMEM.rt_value; // rt value actually read data from memory
-
+  // rt value actually read data from memory
+  Reg_MEMtoWB.rt_value = Reg_EXtoMEM.rt_value;
   /*Implement your code here*/
+  if (memWrite(Reg_EXtoMEM.wb_mem) != 0) {
+    // Need to write
+    mem_write_32(Reg_MEMtoWB.AluResult, Reg_MEMtoWB.rt_value);
+  }
+  if (memRead(Reg_EXtoMEM.wb_mem) != 0) {
+    // Need to read
+    Reg_MEMtoWB.rt_value = mem_read_32(Reg_MEMtoWB.AluResult);
+  }
+  if (branch(Reg_EXtoMEM.wb_mem) != 0) {
+    // Branch
+    fflush_instruction();
+    CURRENT_STATE.PC = Reg_EXtoMEM.newPC1;
+  }
+  if (jump(Reg_EXtoMEM.wb_mem) != 0) {
+    // Jump
+    fflush_instruction();
+    CURRENT_STATE.PC = Reg_EXtoMEM.newPC2;
+  }
 }
 
 /*
  * if regWrite = 0, mem/wb will not run
  */
-void pipe_stage_wb() { /*Implement your code here*/ }
+void pipe_stage_wb() { /*Implement your code here*/
+  uint32_t val_to_write = 0;
+  if (memtoReg(Reg_MEMtoWB.wb)) {
+    // need to write from mem to reg
+    val_to_write = Reg_MEMtoWB.rt_value;
+  } else {
+    // need to write from ALU to reg
+    val_to_write = Reg_MEMtoWB.AluResult;
+  }
+  if (regWrite(Reg_MEMtoWB.wb) != 0) {
+    // need to write register (not a jump/branch/store instruction)
+    CURRENT_STATE.REGS[Reg_MEMtoWB.addr_rd] = val_to_write;
+  }
+}
