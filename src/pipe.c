@@ -345,6 +345,10 @@ void pipe_stage_mem() {
   // rt value actually read data from memory
   Reg_MEMtoWB.rt_value = Reg_EXtoMEM.rt_value;
   /*Implement your code here*/
+  // forward result from writeback if it needs to be done.
+  if(Reg_MEMtoWB.addr_rd == Reg_EXtoMEM.addr_rd){
+    Reg_MEMtoWB.rt_value = Reg_MEMtoWB.rt_value;
+  }
   if (memWrite(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to write
     mem_write_32(Reg_MEMtoWB.AluResult, Reg_MEMtoWB.rt_value);
