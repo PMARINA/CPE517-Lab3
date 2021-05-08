@@ -1,3 +1,6 @@
+/*
+ * Authors: Julia Chung (chungiee), Pridhvi Myneni (PMARINA)
+ */
 #include "pipe.h"
 #include "shell.h"
 #include <assert.h>
@@ -74,6 +77,9 @@ uint32_t memtoReg(uint8_t wb) { return wb & 0b0001; }
 uint32_t branch(uint8_t m) { return m & 0b0100; }
 uint32_t jump(uint8_t m) { return m & 0b1000; }
 // detect forwarding
+
+static bool last_stall = false;
+
 void detect_hazard() {
   forwardA = 0;
   forwardB = 0;
@@ -105,7 +111,6 @@ int check_stall(uint32_t rs, uint32_t rt) {
   return 0;
 }
 void pipe_stage_decode() {
-  // printf("\nthis is decode!!!");
   uint32_t instruction = Reg_IFtoDE.ins1;
 
   if (instruction == 0) {
@@ -122,6 +127,7 @@ void pipe_stage_decode() {
   stall += check_stall(addr_rs, addr_rt);
 
   if (stall) {
+    last_stall = true;
     printf("encounter lw and need a stall\n");
     Reg_DEtoEX.ex = 0; // clear control line
     Reg_DEtoEX.wb_mem = 0;
@@ -166,6 +172,7 @@ void pipe_stage_decode() {
   }
 
   detect_hazard();
+  printf("\nForwardB = %x\n", forwardB);
 }
 
 uint8_t ALU_control(uint32_t instruction) { // calculate the ALU control input
@@ -245,11 +252,26 @@ uint32_t getInput2() {
     if (memtoReg(Reg_MEMtoWB.wbCopy) == 0) // for lw,  memtoReg is 1.
       value = Reg_MEMtoWB.AluResultCopy;
     else // In WB stages , rt_value is save data from memory
+      // value = Reg_EXtoMEM.;
       value = Reg_MEMtoWB.rt_value;
+    printf("\tRT VALUE === %x\t", value);
+    // if (last_stall){last_stall = false; value = Reg_MEMtoWB.AluResultCopy;}
   }
   return value;
 }
 void pipe_stage_execute() {
+  /*
+   * What is last stall?
+   * -------------------
+   * Because running pipe_stage_execute can result in the rt_value being set to
+   * 0, we must prevent the execute stage from overwriting previous values when
+   * the execute stage effectively doesn't run (owing to stalls in the previous
+   * clock.)
+   */
+  if (last_stall) {
+    last_stall = false;
+    return;
+  }
   printf("\nthis is execute!!!");
 
   uint32_t op = getOp(Reg_DEtoEX.ins);
@@ -270,19 +292,24 @@ void pipe_stage_execute() {
   // calculate new PC for branch
   Reg_EXtoMEM.newPC1 = Reg_DEtoEX.PC + (Reg_DEtoEX.inum << 2);
   // calculate new PC for jump
-  Reg_EXtoMEM.newPC2 = (Reg_DEtoEX.PC & 0xf0000000) | (Reg_DEtoEX.inum << 2);
-  // pass rt value
-  Reg_EXtoMEM.rt_value = Reg_DEtoEX.rt_value;
+  Reg_EXtoMEM.newPC2 =
+      (Reg_DEtoEX.PC & 0xf0000000) | ((Reg_DEtoEX.ins & 0x03FFFFFF) << 2);
+  // Jump instruction debugging code
+  // if ((Reg_DEtoEX.ins & 0xfc000000) == 0x08000000){
+  //   printf("Possible new PC: %x\nOld PC: %x", Reg_EXtoMEM.newPC2,
+  //   Reg_DEtoEX.PC);
+  // }
+
   // pass addr_rd
   if (regDst(Reg_DEtoEX.ex) != 0) { // RegDst=1 rd
     Reg_EXtoMEM.addr_rd = Reg_DEtoEX.addr_rd;
   } else {
     Reg_EXtoMEM.addr_rd = Reg_DEtoEX.addr_rt; // RegDst=0 rt
   }
-
   uint32_t input1 = getInput1(); // Reg_DEtoEX.rs_value;
   uint32_t input2 = getInput2(); // Reg_DEtoEX.rt_value;
-
+  // pass rt value
+  Reg_EXtoMEM.rt_value = Reg_DEtoEX.rt_value;
   if (aluSrc(Reg_DEtoEX.ex) != 0) { // aluscr means use inum
     input2 = Reg_DEtoEX.inum;
   }
@@ -329,7 +356,7 @@ void pipe_stage_execute() {
     Reg_EXtoMEM.zero = !Reg_EXtoMEM.zero;
   printf("\n\nADDR = %d, answer = %x\n", Reg_EXtoMEM.addr_rd,
          Reg_EXtoMEM.AluResult);
-  if (forwardB == 1) {
+  if (forwardB == 1 && (op == 35 || op == 43)) {
     // This is an edge case problem with I-type instructions
     // where the value of rt is not used until MEM.
     // Only happens with SW.
@@ -337,7 +364,13 @@ void pipe_stage_execute() {
     // LW doesn't have this problem because both operands
     // are used in EX and don't just pass through
     Reg_EXtoMEM.rt_value = Reg_MEMtoWB.AluResultCopy;
-    printf("HAD TO COPYYYY");
+    printf("HAD TO COPYYYY %d - %x", Reg_MEMtoWB.AluResultCopy,
+           Reg_MEMtoWB.AluResultCopy);
+  } else if (forwardB == 2 && (op == 35 || op == 43)) {
+    // LW problem with data hazards -- the next instruction needs the value
+    Reg_EXtoMEM.rt_value = Reg_MEMtoWB.AluResult;
+    printf("HAD TO COPYYYY %d - %x", Reg_MEMtoWB.AluResult,
+           Reg_MEMtoWB.AluResult);
   }
 }
 void fflush_instruction() {
@@ -370,9 +403,11 @@ void pipe_stage_mem() {
   }
   if (memRead(Reg_EXtoMEM.wb_mem) != 0) {
     // Need to read
-    Reg_MEMtoWB.rt_value = mem_read_32(Reg_MEMtoWB.AluResult);
+    Reg_MEMtoWB.rt_value = mem_read_32(Reg_MEMtoWB.AluResultCopy);
+    printf("\nREADING VALUE %x INTO %x", Reg_MEMtoWB.rt_value,
+           Reg_MEMtoWB.AluResultCopy);
   }
-  if (branch(Reg_EXtoMEM.wb_mem) != 0) {
+  if (branch(Reg_EXtoMEM.wb_mem) != 0 && Reg_EXtoMEM.zero) {
     // Branch
     fflush_instruction();
     CURRENT_STATE.PC = Reg_EXtoMEM.newPC1;

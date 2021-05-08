@@ -1,4 +1,4 @@
-#  Author created by Jake Foglia
+#  Author: Jake Foglia
 .text:
   addi $t0 $zero 0x1
   lui $a0 0x1001
